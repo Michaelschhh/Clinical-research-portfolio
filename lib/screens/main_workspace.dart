@@ -381,7 +381,7 @@ class _MainWorkspaceState extends State<MainWorkspace> {
       grid.columns.add(count: columns.length);
       final headerRow = grid.headers.add(1)[0];
       for (int i = 0; i < columns.length; i++) {
-        headerRow.cells[i].value = columns[i];
+        headerRow.cells[i].value = _sanitizeForPdf(columns[i]);
         headerRow.cells[i].stringFormat = stringFormat;
         headerRow.cells[i].style = PdfGridCellStyle(
           font: PdfStandardFont(PdfFontFamily.helvetica, 12, style: PdfFontStyle.bold),
@@ -397,7 +397,7 @@ class _MainWorkspaceState extends State<MainWorkspace> {
         else while (safeRow.length < columns.length) safeRow.add("");
         
         for (int i = 0; i < columns.length; i++) {
-          row.cells[i].value = safeRow[i].toString();
+          row.cells[i].value = _sanitizeForPdf(safeRow[i].toString());
           row.cells[i].stringFormat = stringFormat;
         }
       }
@@ -421,6 +421,18 @@ class _MainWorkspaceState extends State<MainWorkspace> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error generating PDF: $e')));
     }
+  }
+
+  /// Strips characters unsupported by PdfStandardFont (Latin-1 only).
+  /// AI-generated text often contains invisible Unicode control chars
+  /// like U+200F (RTL mark) that crash the Syncfusion PDF renderer.
+  String _sanitizeForPdf(String input) {
+    return input.runes.map((r) {
+      // Keep standard printable ASCII + Latin-1 Supplement + common whitespace
+      if (r == 10 || r == 13 || r == 9) return String.fromCharCode(r); // LF, CR, Tab
+      if (r >= 32 && r <= 255) return String.fromCharCode(r); // Latin-1 range
+      return ''; // Strip everything else (RTL marks, zero-width chars, emoji, etc.)
+    }).join();
   }
 
   void _downloadReferenceSlipPdf() {
@@ -448,11 +460,13 @@ class _MainWorkspaceState extends State<MainWorkspace> {
         
         final flag = _flags[i];
         final id = i + 1;
-        final type = (flag['flag_type'] ?? 'Unknown').toString();
-        final rationale = (flag['rationale'] ?? '').toString();
-        final snippet = (flag['text_snippet']?.toString().isNotEmpty == true)
-            ? flag['text_snippet'].toString()
-            : "Lines ${flag['start_line'] ?? '?'}-${flag['end_line'] ?? '?'}";
+        final type = _sanitizeForPdf((flag['flag_type'] ?? 'Unknown').toString());
+        final rationale = _sanitizeForPdf((flag['rationale'] ?? '').toString());
+        final snippet = _sanitizeForPdf(
+          (flag['text_snippet']?.toString().isNotEmpty == true)
+              ? flag['text_snippet'].toString()
+              : "Lines ${flag['start_line'] ?? '?'}-${flag['end_line'] ?? '?'}",
+        );
         final colorCode = flag['color_code']?.toString() ?? '';
         
         final pdfColor = _getPdfColor(colorCode);
