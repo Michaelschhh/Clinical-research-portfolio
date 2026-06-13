@@ -87,10 +87,23 @@ class AnalysisPanel extends StatelessWidget {
 
     if (flags.isEmpty) {
       return const Center(
-        child: Text(
-          "No flags identified. Review input or adjust the prompt.",
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white70),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
+            Gap(16),
+            Text(
+              "No issues identified.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Gap(8),
+            Text(
+              "Upload a document and run analysis to begin,\nor the document passed all checks.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+          ],
         ),
       );
     }
