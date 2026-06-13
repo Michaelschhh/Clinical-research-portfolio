@@ -426,70 +426,91 @@ class _MainWorkspaceState extends State<MainWorkspace> {
   void _downloadReferenceSlipPdf() {
     if (_flags.isEmpty) return;
 
-    final document = PdfDocument();
-    
-    final titleFont = PdfStandardFont(PdfFontFamily.helvetica, 18, style: PdfFontStyle.bold);
-    final headerFont = PdfStandardFont(PdfFontFamily.helvetica, 12, style: PdfFontStyle.bold);
-    final textFont = PdfStandardFont(PdfFontFamily.helvetica, 10);
-    
-    PdfPage page = document.pages.add();
-    double currentY = 0;
-    
-    page.graphics.drawString("AI Reference Slip", titleFont, bounds: Rect.fromLTWH(0, currentY, page.getClientSize().width, 30));
-    currentY += 40;
-    
-    for (int i = 0; i < _flags.length; i++) {
-      if (currentY > page.getClientSize().height - 80) {
-        page = document.pages.add();
-        currentY = 0;
+    try {
+      final document = PdfDocument();
+      
+      final titleFont = PdfStandardFont(PdfFontFamily.helvetica, 18, style: PdfFontStyle.bold);
+      final headerFont = PdfStandardFont(PdfFontFamily.helvetica, 12, style: PdfFontStyle.bold);
+      final textFont = PdfStandardFont(PdfFontFamily.helvetica, 10);
+      
+      PdfPage page = document.pages.add();
+      double currentY = 0;
+      final double pageWidth = page.getClientSize().width;
+      
+      page.graphics.drawString("AI Reference Slip", titleFont, bounds: Rect.fromLTWH(0, currentY, pageWidth, 30));
+      currentY += 40;
+      
+      for (int i = 0; i < _flags.length; i++) {
+        if (currentY > page.getClientSize().height - 80) {
+          page = document.pages.add();
+          currentY = 0;
+        }
+        
+        final flag = _flags[i];
+        final id = i + 1;
+        final type = (flag['flag_type'] ?? 'Unknown').toString();
+        final rationale = (flag['rationale'] ?? '').toString();
+        final snippet = (flag['text_snippet']?.toString().isNotEmpty == true)
+            ? flag['text_snippet'].toString()
+            : "Lines ${flag['start_line'] ?? '?'}-${flag['end_line'] ?? '?'}";
+        final colorCode = flag['color_code']?.toString() ?? '';
+        
+        final pdfColor = _getPdfColor(colorCode);
+        
+        final headerText = "Flag #$id - $type";
+        final headerElement = PdfTextElement(text: headerText, font: headerFont, brush: PdfSolidBrush(pdfColor));
+        final headerLayoutResult = headerElement.draw(
+            page: page,
+            bounds: Rect.fromLTWH(0, currentY, pageWidth, 0));
+        
+        if (headerLayoutResult != null) {
+          currentY = headerLayoutResult.bounds.bottom + 10;
+          page = headerLayoutResult.page;
+        } else {
+          currentY += 20;
+        }
+        
+        final rationaleElement = PdfTextElement(text: "Rationale:\n$rationale", font: textFont);
+        final rationaleResult = rationaleElement.draw(
+            page: page,
+            bounds: Rect.fromLTWH(0, currentY, pageWidth, 0),
+            format: PdfLayoutFormat(layoutType: PdfLayoutType.paginate));
+            
+        if (rationaleResult != null) {
+          currentY = rationaleResult.bounds.bottom + 10;
+          page = rationaleResult.page;
+        } else {
+          currentY += 20;
+        }
+        
+        final snippetElement = PdfTextElement(text: "Source Reference:\n$snippet", font: textFont, brush: PdfSolidBrush(PdfColor(100, 100, 100)));
+        final snippetResult = snippetElement.draw(
+            page: page,
+            bounds: Rect.fromLTWH(0, currentY, pageWidth, 0),
+            format: PdfLayoutFormat(layoutType: PdfLayoutType.paginate));
+            
+        if (snippetResult != null) {
+          currentY = snippetResult.bounds.bottom + 30;
+          page = snippetResult.page;
+        } else {
+          currentY += 30;
+        }
       }
       
-      final flag = _flags[i];
-      final id = i + 1;
-      final type = (flag['flag_type'] ?? 'Unknown').toString();
-      final rationale = (flag['rationale'] ?? '').toString();
-      final snippet = "Lines ${flag['start_line']}-${flag['end_line']}";
-      final colorCode = flag['color_code']?.toString() ?? '';
+      final bytes = document.saveSync();
+      document.dispose();
       
-      final pdfColor = _getPdfColor(colorCode);
-      
-      final headerText = "Flag #$id - $type";
-      final headerElement = PdfTextElement(text: headerText, font: headerFont, brush: PdfSolidBrush(pdfColor));
-      final headerLayoutResult = headerElement.draw(
-          page: page,
-          bounds: Rect.fromLTWH(0, currentY, page.getClientSize().width, 0))!;
-      
-      currentY = headerLayoutResult.bounds.bottom + 10;
-      page = headerLayoutResult.page;
-      
-      final rationaleElement = PdfTextElement(text: "Rationale:\n$rationale", font: textFont);
-      final rationaleResult = rationaleElement.draw(
-          page: page,
-          bounds: Rect.fromLTWH(0, currentY, page.getClientSize().width, 0),
-          format: PdfLayoutFormat(layoutType: PdfLayoutType.paginate))!;
-          
-      currentY = rationaleResult.bounds.bottom + 10;
-      page = rationaleResult.page;
-      
-      final snippetElement = PdfTextElement(text: "Document Text:\n$snippet", font: textFont, brush: PdfSolidBrush(PdfColor(100, 100, 100)));
-      final snippetResult = snippetElement.draw(
-          page: page,
-          bounds: Rect.fromLTWH(0, currentY, page.getClientSize().width, 0),
-          format: PdfLayoutFormat(layoutType: PdfLayoutType.paginate))!;
-          
-      currentY = snippetResult.bounds.bottom + 30;
-      page = snippetResult.page;
+      final blob = html.Blob([Uint8List.fromList(bytes)], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute("download", "ai_reference_slip.pdf")
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating AI Slip: $e'), backgroundColor: AppTheme.flagRed),
+      );
     }
-    
-    final bytes = document.saveSync();
-    document.dispose();
-    
-    final blob = html.Blob([Uint8List.fromList(bytes)], 'application/pdf');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..setAttribute("download", "ai_reference_slip.pdf")
-      ..click();
-    html.Url.revokeObjectUrl(url);
   }
 
   Widget _buildWorkspaceContent(bool isMobile) {
