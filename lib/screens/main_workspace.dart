@@ -24,6 +24,7 @@ class MainWorkspace extends StatefulWidget {
 
 class _MainWorkspaceState extends State<MainWorkspace> {
   int _selectedTab = 0;
+  bool _isSidebarOpen = true;
   String _apiKey = '';
   String _documentText = '';
   Uint8List? _originalPdfBytes;
@@ -490,167 +491,236 @@ class _MainWorkspaceState extends State<MainWorkspace> {
     html.Url.revokeObjectUrl(url);
   }
 
-  Widget _buildWorkspaceContent() {
+  Widget _buildWorkspaceContent(bool isMobile) {
     if (_selectedTab == 4) {
       return const RegulatoryReferencePanel();
     }
 
-    return Row(
+    final documentViewer = DocumentViewer(
+      text: _documentText,
+      onTextChanged: (text) {
+        setState(() {
+          _documentText = text;
+          _flags = []; 
+          _formatterData = null;
+        });
+      },
+      flags: _flags,
+      pdfBytes: _displayPdfBytes,
+      pdfViewerController: _pdfViewerController,
+      onPdfLoaded: (originalBytes, extractedText, lines) {
+         setState(() {
+            _originalPdfBytes = originalBytes;
+            _displayPdfBytes = originalBytes;
+            _documentText = extractedText;
+            _pdfLines = lines;
+            _flags = [];
+         });
+      },
+      onPdfCleared: () {
+         setState(() {
+            _originalPdfBytes = null;
+            _displayPdfBytes = null;
+            _documentText = '';
+            _flags = [];
+         });
+      }
+    );
+
+    final actionButtons = Wrap(
+      alignment: isMobile ? WrapAlignment.center : WrapAlignment.end,
+      spacing: 12,
+      runSpacing: 12,
       children: [
-        // Left Panel (70%)
-        Expanded(
-          flex: 7,
-          child: Column(
-            children: [
-              Expanded(
-                child: DocumentViewer(
-                  text: _documentText,
-                  onTextChanged: (text) {
-                    setState(() {
-                      _documentText = text;
-                      _flags = []; 
-                      _formatterData = null;
-                    });
-                  },
-                  flags: _flags,
-                  pdfBytes: _displayPdfBytes,
-                  pdfViewerController: _pdfViewerController,
-                  onPdfLoaded: (originalBytes, extractedText, lines) {
-                     setState(() {
-                        _originalPdfBytes = originalBytes;
-                        _displayPdfBytes = originalBytes;
-                        _documentText = extractedText;
-                        _pdfLines = lines;
-                        _flags = [];
-                     });
-                  },
-                  onPdfCleared: () {
-                     setState(() {
-                        _originalPdfBytes = null;
-                        _displayPdfBytes = null;
-                        _documentText = '';
-                        _flags = [];
-                     });
-                  }
-                ),
-              ),
-              const Gap(16),
-              Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  if (_displayPdfBytes != null)
-                    ElevatedButton.icon(
-                      onPressed: _downloadPdf,
-                      icon: const Icon(Icons.picture_as_pdf),
-                      label: const Text('Download PDF'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.backgroundDark,
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white24),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      ),
-                    ),
-                  if (_flags.isNotEmpty && _selectedTab != 2)
-                    ElevatedButton.icon(
-                      onPressed: _downloadReport,
-                      icon: const Icon(Icons.download),
-                      label: const Text('Download CSV'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.backgroundDark,
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white24),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      ),
-                    ),
-                  if (_flags.isNotEmpty && _selectedTab != 2)
-                    ElevatedButton.icon(
-                      onPressed: _downloadReferenceSlipPdf,
-                      icon: const Icon(Icons.picture_as_pdf),
-                      label: const Text('Download AI Slip'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.backgroundDark,
-                        foregroundColor: AppTheme.flagBlue,
-                        side: const BorderSide(color: AppTheme.flagBlue),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      ),
-                    ),
-                  if (_selectedTab == 2 && _formatterData != null)
-                    ElevatedButton.icon(
-                      onPressed: _downloadFormatterTablePdf,
-                      icon: const Icon(Icons.table_chart),
-                      label: const Text('Download Table PDF'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.backgroundDark,
-                        foregroundColor: AppTheme.flagBlue,
-                        side: const BorderSide(color: AppTheme.flagBlue),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      ),
-                    ),
-                  ElevatedButton.icon(
-                    onPressed: (_apiKey.isEmpty || _isLoading) ? null : _analyzeDocument,
-                    icon: const Icon(Icons.auto_awesome),
-                    label: Text(_apiKey.isEmpty ? 'Add API Key to Analyze' : 'Analyze Document'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.flagBlue,
-                      foregroundColor: AppTheme.backgroundDark,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        if (_displayPdfBytes != null)
+          ElevatedButton.icon(
+            onPressed: _downloadPdf,
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Download PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.backgroundDark,
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white24),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
           ),
-        ),
-        const Gap(24),
-        // Right Panel (30%)
-        Expanded(
-          flex: 3,
-          child: AnalysisPanel(
-            flags: _flags,
-            isFormatter: _selectedTab == 2,
-            formatterData: _formatterData,
-            onFlagTap: (flag) {
-              if (flag is Map && flag.containsKey('page_index')) {
-                int pageIndex = flag['page_index'] as int;
-                _pdfViewerController.jumpToPage(pageIndex + 1);
-                
-                if (flag.containsKey('bounds_top')) {
-                  double boundsTop = flag['bounds_top'] as double;
-                  Future.delayed(const Duration(milliseconds: 150), () {
-                    double currentY = _pdfViewerController.scrollOffset.dy;
-                    double zoom = _pdfViewerController.zoomLevel;
-                    double preciseY = currentY + (boundsTop * zoom) - 50; 
-                    _pdfViewerController.jumpTo(yOffset: preciseY);
-                  });
-                }
-              }
-            },
+        if (_flags.isNotEmpty && _selectedTab != 2)
+          ElevatedButton.icon(
+            onPressed: _downloadReport,
+            icon: const Icon(Icons.download),
+            label: const Text('Download CSV'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.backgroundDark,
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white24),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+          ),
+        if (_flags.isNotEmpty && _selectedTab != 2)
+          ElevatedButton.icon(
+            onPressed: _downloadReferenceSlipPdf,
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Download AI Slip'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.backgroundDark,
+              foregroundColor: AppTheme.flagBlue,
+              side: const BorderSide(color: AppTheme.flagBlue),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+          ),
+        if (_selectedTab == 2 && _formatterData != null)
+          ElevatedButton.icon(
+            onPressed: _downloadFormatterTablePdf,
+            icon: const Icon(Icons.table_chart),
+            label: const Text('Download Table PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.backgroundDark,
+              foregroundColor: AppTheme.flagBlue,
+              side: const BorderSide(color: AppTheme.flagBlue),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+          ),
+        ElevatedButton.icon(
+          onPressed: (_apiKey.isEmpty || _isLoading) ? null : _analyzeDocument,
+          icon: const Icon(Icons.auto_awesome),
+          label: Text(_apiKey.isEmpty ? 'Add API Key to Analyze' : 'Analyze Document'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.flagBlue,
+            foregroundColor: AppTheme.backgroundDark,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ),
       ],
     );
+
+    final analysisPanel = AnalysisPanel(
+      flags: _flags,
+      isFormatter: _selectedTab == 2,
+      formatterData: _formatterData,
+      onFlagTap: (flag) {
+        if (flag is Map && flag.containsKey('page_index')) {
+          int pageIndex = flag['page_index'] as int;
+          _pdfViewerController.jumpToPage(pageIndex + 1);
+          
+          if (flag.containsKey('bounds_top')) {
+            double boundsTop = flag['bounds_top'] as double;
+            Future.delayed(const Duration(milliseconds: 150), () {
+              double currentY = _pdfViewerController.scrollOffset.dy;
+              double zoom = _pdfViewerController.zoomLevel;
+              double preciseY = currentY + (boundsTop * zoom) - 50; 
+              _pdfViewerController.jumpTo(yOffset: preciseY);
+            });
+          }
+        }
+      },
+    );
+
+    if (isMobile) {
+      return Column(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              children: [
+                Expanded(child: documentViewer),
+                const Gap(8),
+                actionButtons,
+                const Gap(8),
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white24, height: 1),
+          Expanded(
+            flex: 2,
+            child: analysisPanel,
+          ),
+        ],
+      );
+    } else {
+      return Row(
+        children: [
+          // Left Panel (70%)
+          Expanded(
+            flex: 7,
+            child: Column(
+              children: [
+                Expanded(child: documentViewer),
+                const Gap(16),
+                actionButtons,
+              ],
+            ),
+          ),
+          const Gap(24),
+          // Right Panel (30%)
+          Expanded(
+            flex: 3,
+            child: analysisPanel,
+          ),
+        ],
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
-      body: SelectionArea(
-        child: Column(
-          children: [
-            const PersistentBanner(),
-            Expanded(
-              child: Stack(
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isTablet = constraints.maxWidth < 1100 && constraints.maxWidth >= 600;
-                      final isMobile = constraints.maxWidth < 600;
-  
-                      return Container(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 900;
+        final isTablet = constraints.maxWidth >= 900 && constraints.maxWidth < 1200;
+
+        final sidebar = Sidebar(
+          selectedIndex: _selectedTab,
+          onTabSelected: (index) {
+             _onTabSelected(index);
+             if (isMobile) {
+               Navigator.of(context).pop(); // close drawer
+             }
+          },
+          apiKey: _apiKey,
+          onApiKeyChanged: _onApiKeyChanged,
+        );
+
+        return Scaffold(
+          backgroundColor: AppTheme.backgroundDark,
+          appBar: isMobile
+              ? AppBar(
+                  backgroundColor: AppTheme.backgroundDark,
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  title: const Text('Overcast Engine', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  elevation: 0,
+                )
+              : null,
+          drawer: isMobile
+              ? Drawer(
+                  backgroundColor: AppTheme.backgroundDark,
+                  child: SafeArea(child: sidebar),
+                )
+              : null,
+          body: SelectionArea(
+            child: Column(
+              children: [
+                const PersistentBanner(),
+                if (!isMobile)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 24.0, top: 12.0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        icon: Icon(_isSidebarOpen ? Icons.menu_open : Icons.menu, color: Colors.white),
+                        onPressed: () {
+                          setState(() {
+                            _isSidebarOpen = !_isSidebarOpen;
+                          });
+                        },
+                        tooltip: _isSidebarOpen ? 'Close Sidebar' : 'Open Sidebar',
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Container(
                         width: constraints.maxWidth,
                         height: constraints.maxHeight,
                         clipBehavior: Clip.hardEdge,
@@ -664,37 +734,30 @@ class _MainWorkspaceState extends State<MainWorkspace> {
                             ],
                           ),
                         ),
-                        padding: const EdgeInsets.all(24),
+                        padding: EdgeInsets.all(isMobile ? 12 : 24),
                         child: Row(
                           children: [
-                            if (!isMobile)
+                            if (!isMobile && _isSidebarOpen)
                               SizedBox(
                                 width: isTablet ? 250 : 300,
-                                child: Sidebar(
-                                  selectedIndex: _selectedTab,
-                                  onTabSelected: _onTabSelected,
-                                  apiKey: _apiKey,
-                                  onApiKeyChanged: _onApiKeyChanged,
-                                ),
+                                child: sidebar,
                               ),
-                            if (!isMobile) const Gap(24),
+                            if (!isMobile && _isSidebarOpen) const Gap(24),
                             Expanded(
-                              child: isMobile
-                                  ? const Center(child: Text('Mobile layout not supported. Please use Tablet or Desktop.'))
-                                  : _buildWorkspaceContent(),
+                              child: _buildWorkspaceContent(isMobile),
                             ),
                           ],
                         ),
-                      );
-                    },
+                      ),
+                      if (_isLoading) const LoadingSpinnerOverlay(),
+                    ],
                   ),
-                  if (_isLoading) const LoadingSpinnerOverlay(),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
