@@ -701,22 +701,6 @@ class _MainWorkspaceState extends State<MainWorkspace> {
             child: Column(
               children: [
                 const PersistentBanner(),
-                if (!isMobile)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 24.0, top: 12.0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        icon: Icon(_isSidebarOpen ? Icons.menu_open : Icons.menu, color: Colors.white),
-                        onPressed: () {
-                          setState(() {
-                            _isSidebarOpen = !_isSidebarOpen;
-                          });
-                        },
-                        tooltip: _isSidebarOpen ? 'Close Sidebar' : 'Open Sidebar',
-                      ),
-                    ),
-                  ),
                 Expanded(
                   child: Stack(
                     children: [
@@ -749,6 +733,28 @@ class _MainWorkspaceState extends State<MainWorkspace> {
                           ],
                         ),
                       ),
+                      if (!isMobile)
+                        Positioned(
+                          top: 24,
+                          left: _isSidebarOpen ? 280 : 24, // Shift based on sidebar
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundDark.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: IconButton(
+                              icon: Icon(_isSidebarOpen ? Icons.menu_open : Icons.menu, color: Colors.white),
+                              onPressed: () {
+                                setState(() {
+                                  _isSidebarOpen = !_isSidebarOpen;
+                                });
+                              },
+                              tooltip: _isSidebarOpen ? 'Close Sidebar' : 'Open Sidebar',
+                            ),
+                          ),
+                        ),
                       if (_isLoading) const LoadingSpinnerOverlay(),
                     ],
                   ),
