@@ -84,6 +84,8 @@ class Sidebar extends StatelessWidget {
                 const Text('REFERENCE', style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.bold)),
                 const Gap(16),
                 _buildTab(4, 'Regulatory Panel', Icons.gavel),
+                const Gap(8),
+                _buildTab(5, 'Test Documents', Icons.folder_special),
               ],
             ),
           ),

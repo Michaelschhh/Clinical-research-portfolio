@@ -11,6 +11,7 @@ import '../widgets/analysis_panel.dart';
 import '../widgets/loading_spinner.dart';
 import '../widgets/persistent_banner.dart';
 import '../widgets/regulatory_reference_panel.dart';
+import '../widgets/test_documents_panel.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'dart:html' as html;
 import 'dart:convert';
@@ -494,6 +495,9 @@ class _MainWorkspaceState extends State<MainWorkspace> {
   Widget _buildWorkspaceContent(bool isMobile) {
     if (_selectedTab == 4) {
       return const RegulatoryReferencePanel();
+    }
+    if (_selectedTab == 5) {
+      return const TestDocumentsPanel();
     }
 
     final documentViewer = DocumentViewer(
